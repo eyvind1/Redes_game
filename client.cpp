@@ -14,6 +14,7 @@
 
 using namespace std;
 
+
 typedef struct _win_border_struct {
         chtype  ls, rs, ts, bs,
                 tl, tr, bl, br;
@@ -71,6 +72,36 @@ void create_box(WIN *p_win, bool flag)
         refresh();
 }
 
+WIN win;
+void movements_clients(WIN &win2,int move)
+{
+    while(move != KEY_F(1))
+                {
+                    
+                    switch(move)
+                    {       case KEY_LEFT:
+                                create_box(&win2, FALSE);
+                                --win2.startx;
+                                create_box(&win2, TRUE);
+                                break;
+                            case KEY_RIGHT:
+                                create_box(&win2, FALSE);
+                                ++win2.startx;
+                                create_box(&win2, TRUE);
+                                break;
+                            case KEY_UP:
+                                create_box(&win2, FALSE);
+                                --win2.starty;
+                                create_box(&win2, TRUE);
+                                break;
+                            case KEY_DOWN:
+                                create_box(&win2, FALSE);
+                                ++win2.starty;
+                                create_box(&win2, TRUE);
+                                break;
+                    }
+                }
+}
 
 void print_vector(vector<char> vec){
     for(int i=0; i<vec.size(); i++)
@@ -103,58 +134,13 @@ void read_from_client(int SocketFD){
             }
             else if(buffer_op[0] == 'I'){
                 message_buffer = new char[size_message];
-                n = read(SocketFD, message_buffer, size_message);
+                n = read(SocketFD, message_buffer, size_message); 
                 //cout<< "Juego Iniciado: " << message_buffer << endl;
                 WIN win2;
-                int ch,move;
-                move = atoi(message_buffer);
+                int ch;
+                ch = atoi(message_buffer);
+                movements_clients(win2,ch);
                 
-                initscr();                      //Start curses mode            
-                start_color();                  // Start the color functionality 
-                cbreak();                       // Line buffering disabled, Pass on
-                                                    // everty thing to me           
-                keypad(stdscr, TRUE);           // I need that nifty F1         
-                noecho();
-                init_pair(1, COLOR_CYAN, COLOR_BLACK);
-                //Initialize the window parameters 
-                init_win_params(&win2);
-                print_win_params(&win2);
-    
-                attron(COLOR_PAIR(1));
-                printw("Press F1 to exit");
-                refresh();
-                attroff(COLOR_PAIR(1));
-                create_box(&win2, TRUE);    
-                while(ch=getch() != KEY_F(1))
-                {
-                    
-                    move = atoi(message_buffer);
-                    switch(move)
-                    {       case KEY_LEFT:
-                                create_box(&win2, FALSE);
-                                --win2.startx;
-                                create_box(&win2, TRUE);
-                                break;
-                            case KEY_RIGHT:
-                                create_box(&win2, FALSE);
-                                ++win2.startx;
-                                create_box(&win2, TRUE);
-                                break;
-                            case KEY_UP:
-                                create_box(&win2, FALSE);
-                                --win2.starty;
-                                create_box(&win2, TRUE);
-                                break;
-                            case KEY_DOWN:
-                                create_box(&win2, FALSE);
-                                ++win2.starty;
-                                create_box(&win2, TRUE);
-                                break;
-                    }
-                    //n = write(SocketFD, to_send.c_str(), to_send.length());
-                    //input_message = "";
-                }
-                endwin(); 
             }
         }
         bzero(buffer,4);
@@ -168,6 +154,8 @@ void read_from_client(int SocketFD){
 
 int main(int argc, char *argv[])
 {
+   
+
     struct sockaddr_in stSockAddr;
     int Res;
     int SocketFD = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP );
@@ -204,6 +192,7 @@ int main(int argc, char *argv[])
         close(SocketFD);
         exit(EXIT_FAILURE);
     }
+
     std::thread(read_from_client, SocketFD).detach();
     cout << "Connecting..." << endl;
 
@@ -266,7 +255,7 @@ int main(int argc, char *argv[])
         else if(input_message == "G")
         {
             
-            WIN win;
+             WIN win;
             string to_user;
             string move;
             to_send = "";
@@ -277,7 +266,7 @@ int main(int argc, char *argv[])
             initscr();                      //Start curses mode            
             start_color();                  // Start the color functionality 
             cbreak();                       // Line buffering disabled, Pass on
-            //string move;                                    // everty thing to me           
+            //string move;                  // everty thing to me           
             keypad(stdscr, TRUE);           // I need that nifty F1         
             noecho();
             init_pair(1, COLOR_CYAN, COLOR_BLACK);
