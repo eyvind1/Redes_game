@@ -11,96 +11,44 @@
 #include <ncurses.h>
 #include <chrono> 
 #include "protocol.h"
+#include "game_utils.h"
 
 using namespace std;
 
-
-typedef struct _win_border_struct {
-        chtype  ls, rs, ts, bs,
-                tl, tr, bl, br;
-}WIN_BORDER;
-typedef struct _WIN_struct {
-        int startx, starty;
-        int height, width;
-        WIN_BORDER border;
-}WIN;
-
-
-void bullet(WIN *p_win)
-{
-}
-void init_win_params(WIN *p_win)
-{
-        p_win->height = 8;
-        p_win->width = 16;
-        p_win->starty = (LINES - p_win->height)/2;
-        p_win->startx = (COLS - p_win->width)/2;
-        p_win->border.ls = '|';
-        p_win->border.rs = '|';
-        p_win->border.ts = '-';
-        p_win->border.bs = '-';
-        p_win->border.tl = '+';
-        p_win->border.tr = '+';
-        p_win->border.bl = '+';
-        p_win->border.br = '+';
-}
-void print_win_params(WIN *p_win)
-{
-}
-void create_box(WIN *p_win, bool flag)
-{       int i, j;
-        int x, y, w, h;
-        x = p_win->startx;
-        y = p_win->starty;
-        w = p_win->width;
-        h = p_win->height;
-        if(flag == TRUE)
-        {
-                move( y+0,x ); addstr("  ##        ##  ");
-                move( y+1,x ); addstr("    #      #    ");
-                move( y+2,x ); addstr("  ############  ");
-                move( y+3,x ); addstr(" ###  ####  ### ");
-                move( y+4,x ); addstr("################");
-                move( y+5,x ); addstr("# ############ #");
-                move( y+6,x ); addstr("# #          # #");
-                move( y+7,x ); addstr("   ##      ##   ");
-        }
-        else
-               for(j = y; j <= y + h; ++j)
-                        for(i = x; i <= x + w; ++i)
-                                mvaddch(j, i, ' ');
-        refresh();
-}
-
 WIN win;
+WIN win_second;
+
+
+
 void movements_clients(WIN &win2,int move)
 {
-    while(move != KEY_F(1))
-                {
-                    
-                    switch(move)
-                    {       case KEY_LEFT:
-                                create_box(&win2, FALSE);
-                                --win2.startx;
-                                create_box(&win2, TRUE);
-                                break;
-                            case KEY_RIGHT:
-                                create_box(&win2, FALSE);
-                                ++win2.startx;
-                                create_box(&win2, TRUE);
-                                break;
-                            case KEY_UP:
-                                create_box(&win2, FALSE);
-                                --win2.starty;
-                                create_box(&win2, TRUE);
-                                break;
-                            case KEY_DOWN:
-                                create_box(&win2, FALSE);
-                                ++win2.starty;
-                                create_box(&win2, TRUE);
-                                break;
-                    }
-                }
+    switch(move)
+    {
+    case KEY_LEFT:
+        create_box(&win2, FALSE);
+        --win2.startx;
+        create_box(&win2, TRUE);
+        break;
+    case KEY_RIGHT:
+        create_box(&win2, FALSE);
+        ++win2.startx;
+        create_box(&win2, TRUE);
+        break;
+    case KEY_UP:
+        create_box(&win2, FALSE);
+        --win2.starty;
+        create_box(&win2, TRUE);
+        break;
+    case KEY_DOWN:
+        create_box(&win2, FALSE);
+        ++win2.starty;
+        create_box(&win2, TRUE);
+        break;
+    case 120:
+        std::thread(make_bullet_from_enemy, &win2, &win).detach();
+        break;
+    }
+    refresh();
 }
 
 void print_vector(vector<char> vec){
@@ -118,6 +66,7 @@ void read_from_client(int SocketFD){
     char buffer[4];
     bzero(buffer,4);
     int n = read(SocketFD,buffer,4);
+    bool first_game = true;
     do{
         if (n>0){
             int size_message = atoi(buffer);
@@ -134,13 +83,17 @@ void read_from_client(int SocketFD){
             }
             else if(buffer_op[0] == 'I'){
                 message_buffer = new char[size_message];
-                n = read(SocketFD, message_buffer, size_message); 
+                n = read(SocketFD, message_buffer, size_message);
                 //cout<< "Juego Iniciado: " << message_buffer << endl;
-                WIN win2;
+                if(first_game){
+                    init_win_params(&win_second);
+                    create_box(&win_second, TRUE);
+                    first_game = false;
+                }
+                refresh();
                 int ch;
                 ch = atoi(message_buffer);
-                movements_clients(win2,ch);
-                
+                movements_clients(win_second, ch);
             }
         }
         bzero(buffer,4);
@@ -154,7 +107,7 @@ void read_from_client(int SocketFD){
 
 int main(int argc, char *argv[])
 {
-   
+
 
     struct sockaddr_in stSockAddr;
     int Res;
@@ -252,67 +205,123 @@ int main(int argc, char *argv[])
             to_send = "";
             to_send = encode_simple_message(string("E"));
         }
-        else if(input_message == "G")
-        {
-            
-             WIN win;
+        //        else if(input_message == "G")
+        //        {
+
+        //            WIN win;
+        //            string to_user;
+        //            string move;
+        //            to_send = "";
+        //            cout << "Enter the username to play with: ";
+        //            std::getline(std::cin, to_user);
+        //            //to_send = encode_to_user_message(to_user,to_user,'G');
+        //            int ch;
+        //            initscr();                      //Start curses mode
+        //            start_color();                  // Start the color functionality
+        //            cbreak();                       // Line buffering disabled, Pass on
+        //            //string move;                  // everty thing to me
+        //            keypad(stdscr, TRUE);           // I need that nifty F1
+        //            noecho();
+        //            init_pair(1, COLOR_CYAN, COLOR_BLACK);
+        //            //Initialize the window parameters
+        //            init_win_params(&win);
+        //            print_win_params(&win);
+
+        //            attron(COLOR_PAIR(1));
+        //            printw("Press F1 to exit");
+        //            refresh();
+        //            attroff(COLOR_PAIR(1));
+        //            create_box(&win, TRUE);
+        //            while((ch = getch()) != KEY_F(1))
+        //            {
+        //                to_send = to_string(ch);
+        //                to_send = encode_to_user_message(to_send,to_user,'G');
+        //                switch(ch)
+        //                {       case KEY_LEFT:
+        //                            create_box(&win, FALSE);
+        //                            --win.startx;
+        //                            create_box(&win, TRUE);
+        //                            break;
+        //                        case KEY_RIGHT:
+        //                            create_box(&win, FALSE);
+        //                            ++win.startx;
+        //                            create_box(&win, TRUE);
+        //                            break;
+        //                        case KEY_UP:
+        //                            create_box(&win, FALSE);
+        //                            --win.starty;
+        //                            create_box(&win, TRUE);
+        //                            break;
+        //                        case KEY_DOWN:
+        //                            create_box(&win, FALSE);
+        //                            ++win.starty;
+        //                            create_box(&win, TRUE);
+        //                            break;
+        //                }
+        //                n = write(SocketFD, to_send.c_str(), to_send.length());
+        //                input_message = "";
+        //            }
+        //            endwin();
+        //            continue;
+        //        }
+        else if(input_message == "G"){
+            cout << "Enter the username to play with: ";
             string to_user;
-            string move;
-            to_send = "";
-            cout << "Enter the username to play with: "; 
             std::getline(std::cin, to_user);
-            //to_send = encode_to_user_message(to_user,to_user,'G');
             int ch;
-            initscr();                      //Start curses mode            
-            start_color();                  // Start the color functionality 
-            cbreak();                       // Line buffering disabled, Pass on
-            //string move;                  // everty thing to me           
-            keypad(stdscr, TRUE);           // I need that nifty F1         
+
+            initscr();			/* Start curses mode 		*/
+            start_color();			/* Start the color functionality */
+            cbreak();			/* Line buffering disabled, Pass on
+                                 * everty thing to me 		*/
+            keypad(stdscr, TRUE);		/* I need that nifty F1 	*/
             noecho();
             init_pair(1, COLOR_CYAN, COLOR_BLACK);
-            //Initialize the window parameters 
+
+            /* Initialize the window parameters */
             init_win_params(&win);
             print_win_params(&win);
-    
+
             attron(COLOR_PAIR(1));
             printw("Press F1 to exit");
             refresh();
             attroff(COLOR_PAIR(1));
-            create_box(&win, TRUE);    
+
+            create_box(&win, TRUE);
             while((ch = getch()) != KEY_F(1))
             {
                 to_send = to_string(ch);
                 to_send = encode_to_user_message(to_send,to_user,'G');
                 switch(ch)
-                {       case KEY_LEFT:
-                            create_box(&win, FALSE);
-                            --win.startx;
-                            create_box(&win, TRUE);
-                            break;
-                        case KEY_RIGHT:
-                            create_box(&win, FALSE);
-                            ++win.startx;
-                            create_box(&win, TRUE);
-                            break;
-                        case KEY_UP:
-                            create_box(&win, FALSE);
-                            --win.starty;
-                            create_box(&win, TRUE);
-                            break;
-                        case KEY_DOWN:
-                            create_box(&win, FALSE);
-                            ++win.starty;
-                            create_box(&win, TRUE);
-                            break;
+                {	case KEY_LEFT:
+                    create_box(&win, FALSE);
+                    --win.startx;
+                    create_box(&win, TRUE);
+                    break;
+                case KEY_RIGHT:
+                    create_box(&win, FALSE);
+                    ++win.startx;
+                    create_box(&win, TRUE);
+                    break;
+                case KEY_UP:
+                    create_box(&win, FALSE);
+                    --win.starty;
+                    create_box(&win, TRUE);
+                    break;
+                case KEY_DOWN:
+                    create_box(&win, FALSE);
+                    ++win.starty;
+                    create_box(&win, TRUE);
+                    break;
+                case 'x':
+                    std::thread(make_bullet_from_parent, &win, &win_second).detach();
+                    break;
                 }
                 n = write(SocketFD, to_send.c_str(), to_send.length());
                 input_message = "";
             }
-            endwin(); 
-            continue;
+            endwin();
         }
-        
-        
         else{
             cout << "Command not recognized :(" << endl;
             continue;
