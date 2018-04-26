@@ -104,7 +104,7 @@ void make_bullet_from_parent(WIN *parent_win, WIN *enemie){
     while(i>=0){
         usleep(DELAY);
         create_box(&bullet, FALSE);
-        if(bullet.starty == enemie->starty){
+        if(bullet.startx >= enemie->startx && bullet.startx <= enemie->startx+enemie->width && bullet.starty == enemie->starty){
             create_box(enemie, FALSE);
             create_box(&bullet, FALSE);
             return;
@@ -128,7 +128,7 @@ void make_bullet_from_enemy(WIN *parent_win, WIN *enemie){
     while(i>=0){
         usleep(DELAY);
         create_box(&bullet, FALSE);
-        if(bullet.starty == enemie->starty){
+        if(bullet.startx >= enemie->startx && bullet.startx <= enemie->startx+enemie->width && bullet.starty == enemie->starty){
             endwin();
             return;
         }
