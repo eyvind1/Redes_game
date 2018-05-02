@@ -117,8 +117,19 @@ void read_from_client(int SocketFD){
                 message_buffer = new char[size_message];
                 n = read(SocketFD, message_buffer, size_message);
                 int disconnected_id = atoi(message_buffer);
-                create_box(&(bingo_players[disconnected_id]),FALSE);
-                bingo_players.erase(disconnected_id);
+                n = read(SocketFD, message_buffer,4);
+                int lives = atoi(message_buffer);
+                if(lives > 0){
+                    create_box(&(bingo_players[disconnected_id]),FALSE);
+                    bingo_players[disconnected_id].startx = (LINES - bingo_players[disconnected_id].height)/2;
+                    bingo_players[disconnected_id].startx = (COLS - bingo_players[disconnected_id].width)/2;
+                    create_box(&(bingo_players[disconnected_id]),TRUE);
+                }
+                else{
+                    create_box(&(bingo_players[disconnected_id]),FALSE);
+                    bingo_players.erase(disconnected_id);
+                    endwin();
+                }
             }
         }
         bzero(buffer,4);
