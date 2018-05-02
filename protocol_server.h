@@ -44,6 +44,16 @@ string Numberstring_with_padding(int n, int n_bytes){
     return ret;
 }
 
+string prepare_simple_response_outside(string message, char protocol_ch = 'R'){
+    int size_message = message.length();
+    string size_str = NumberToString(size_message);
+    size_str = string(4-size_str.length(), '0').append(size_str);
+    size_str += protocol_ch;
+    size_str += message;
+    return size_str;
+}
+
+
 typedef pair<int,int> coord;
 map<int,coord> bullets_positions;
 map<int,int> players_life;
@@ -93,24 +103,50 @@ void update_bullet_positions(){ // also colissions hehehehe
                     map<int,coord>::iterator player;
                     for(player = movements_game.begin(); player != movements_game.end(); ++player){
                         if( (bullet->second.second == player->second.second) && (bullet->second.first >= player->second.first && bullet->second.first <= (player->second.first+10)) ){
-                            //cout<< "bullet on player "<< player->first<<endl;
+                            std::map<int, coord>::iterator it2;
                             players_life[player->first] = players_life[player->first] - 1;
-                            string actual_lifes = Numberstring_with_padding(players_life[player->first],4);
-                            for (std::map<int, coord>::iterator it2=movements_game.begin(); it2!=movements_game.end(); ++it2){
-                                string player_id = NumberToString(player->first);
-                                int size_message = player_id.length();
-                                string size_str = NumberToString(size_message);
-                                size_str = string(4-size_str.length(), '0').append(size_str);
-                                size_str += 'X';
-                                size_str += player_id;
-                                size_str += actual_lifes;
-                                cout << size_str << endl;
-                                Messsage tmp_msg(it2->first, size_str);
-                                mutx.lock();
-                                queue_messages.push(tmp_msg);
-                                mutx.unlock();
-
+                            bullets_positions.erase(bullet);
+                            if(players_life[player->first] <= 0){
+                                players_life[player->first] = 0;
+                                for (it2 = movements_game.begin(); it2!=movements_game.end(); ++it2){
+                                    string player_id = NumberToString(player->first);
+                                    string msg_collision = prepare_simple_response_outside(player_id, 'X');
+                                    msg_collision += "0000";
+                                    Messsage tmp_msg_x(it2->first, msg_collision);
+                                    cout << tmp_msg_x.message << endl;
+                                    mutx.lock();
+                                    queue_messages.push(tmp_msg_x);
+                                    mutx.unlock();
+                                }
+                                movements_game.erase(player);
                             }
+                            else{
+                                string actual_lifes = Numberstring_with_padding(players_life[player->first],4);
+                                for (it2 = movements_game.begin(); it2!=movements_game.end(); ++it2){
+                                    string player_id = NumberToString(player->first);
+                                    string msg_collision = prepare_simple_response_outside(player_id, 'X');
+                                    msg_collision += actual_lifes;
+                                    Messsage tmp_msg(it2->first, msg_collision);
+
+                                    //send new position of collisioned player
+                                    movements_game[player->first] = make_pair(3,10);
+                                    string s_x = Numberstring_with_padding(3, 4);
+                                    string s_y = Numberstring_with_padding(10, 4);
+                                    string message_position = prepare_simple_response_outside(NumberToString(player->first),'I');
+                                    message_position += s_x;
+                                    message_position += s_y;
+                                    Messsage tmp_msg_position(it2->first, message_position);
+
+                                    cout << tmp_msg.message << endl;
+                                    cout << tmp_msg_position.message << endl;
+
+                                    mutx.lock();
+                                    queue_messages.push(tmp_msg);
+                                    queue_messages.push(tmp_msg_position);
+                                    mutx.unlock();
+                                }
+                            }
+
                         }
                     }
                 }
@@ -150,7 +186,11 @@ public:
                 int y = atoi(message_buffer);
                 movements_game[source_socket] = make_pair(x,y);
                 //init life of players
-                players_life[source_socket] = 4;
+                players_life[source_socket] = 2;
+
+                string str_identifier = prepare_simple_response(NumberToString(source_socket),'G');
+                Messsage identifier_msg(source_socket, str_identifier);
+                multi.push_back(identifier_msg);
 
                 for (std::map<int, coord>::iterator it=movements_game.begin(); it!=movements_game.end(); ++it){
                     string s_x = Numberstring_with_padding(it->second.first, 4);

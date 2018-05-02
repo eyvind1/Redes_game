@@ -23,6 +23,9 @@ using namespace std;
 WIN win;
 WIN win_second;
 
+int my_id;
+int my_lifes = 2;
+
 map<int,WIN> bingo_players;
 ThreadBullet bullets;
 
@@ -41,7 +44,6 @@ void read_from_client(int SocketFD){
     char buffer[4];
     bzero(buffer,4);
     int n = read(SocketFD,buffer,4);
-    bool first_game = true;
     do{
         if (n>0){
             int size_message = atoi(buffer);
@@ -83,10 +85,18 @@ void read_from_client(int SocketFD){
 
                 //cout<< "Juego Iniciado: " << message_buffer << endl;
                 int playerID = atoi(message_buffer);
+
                 n = read(SocketFD, message_buffer,4);
                 int x = atoi(message_buffer);
                 n = read(SocketFD, message_buffer,4);
                 int y = atoi(message_buffer);
+
+                if(my_id == playerID){
+                    mvprintw(25, 0, "you are in the game!");
+                }
+                else{
+                    mvprintw(25, 0, "%d enters the game", playerID);
+                }
 
                 WIN new_player;
                 bingo_players[playerID] = new_player;
@@ -119,17 +129,23 @@ void read_from_client(int SocketFD){
                 int disconnected_id = atoi(message_buffer);
                 n = read(SocketFD, message_buffer,4);
                 int lives = atoi(message_buffer);
-                if(lives > 0){
+                mvprintw(25, 0, "%d dies... im %d", disconnected_id, my_id);
+                if(disconnected_id == my_id) my_lifes = lives;
+                if(lives <= 0){
                     create_box(&(bingo_players[disconnected_id]),FALSE);
-                    bingo_players[disconnected_id].startx = (LINES - bingo_players[disconnected_id].height)/2;
-                    bingo_players[disconnected_id].startx = (COLS - bingo_players[disconnected_id].width)/2;
-                    create_box(&(bingo_players[disconnected_id]),TRUE);
+                    map<int,WIN>::iterator it = bingo_players.find(disconnected_id);
+                    bingo_players.erase(it);
+                    if(disconnected_id == my_id){
+                        clear();
+                        mvprintw(25, 0, "You are die, press any key to exit");
+                    }
                 }
-                else{
-                    create_box(&(bingo_players[disconnected_id]),FALSE);
-                    bingo_players.erase(disconnected_id);
-                    endwin();
-                }
+            }
+            else if(buffer_op[0] == 'G'){
+                message_buffer = new char[size_message];
+                n = read(SocketFD, message_buffer, size_message);
+                int assigned_id = atoi(message_buffer);
+                my_id = assigned_id;
             }
         }
         bzero(buffer,4);
@@ -252,7 +268,6 @@ int main(int argc, char *argv[])
             int starty = (LINES - 3)/ dist(mt);
             int startx = (COLS - 10)/ dist(mt);
             string msg = encode_welcome_game_message(startx,starty);
-
             n = write(SocketFD, msg.c_str(), msg.length());
 
 
@@ -277,14 +292,15 @@ int main(int argc, char *argv[])
 
             //create_box(&win, TRUE);
             while((ch = getch()) != KEY_F(1)){
-                //
+                if(my_lifes <= 0) break;
                 to_send = encode_movement_message(ch);
                 n = write(SocketFD, to_send.c_str(), to_send.length());
-
-
-                // input_message = "";
             }
+            cout << "game finished" << endl;
+            clear();
             endwin();
+            system("clear");
+            continue;
         }
         else{
             cout << "Command not recognized :(" << endl;

@@ -62,10 +62,23 @@ void send_messages(){
     }
 }
 
+void check_socket_active(int socket){
+    int optval2;
+    socklen_t optlen2 = sizeof(optval2);
+    while(true){
+        if(getsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, &optval2, &optlen2) < 0) {
+            cout << "socket  " << socket << "disconnected" << endl;
+            return;
+        }
+    }
+}
+
 int main()
 {
     struct sockaddr_in stSockAddr;
     int SocketFD = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+    int optval;
+    socklen_t optlen = sizeof(optval);
 
     if(-1 == SocketFD)
     {
@@ -104,8 +117,17 @@ int main()
             close(SocketFD);
             exit(EXIT_FAILURE);
         }
+        optval = 1;
+        optlen = sizeof(optval);
+        if(setsockopt(ConnectFD, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen) < 0) {
+           perror("not active socket");
+           close(ConnectFD);
+           exit(EXIT_FAILURE);
+        }
+
         // one thread por client to check
         std::thread(read_from_client, ConnectFD).detach();
+        //std::thread(check_socket_active, ConnectFD).detach();
 
     }
 //    shutdown(ConnectFD, SHUT_RDWR);
