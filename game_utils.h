@@ -3,8 +3,9 @@
 
 #include <ncurses.h>
 #include <unistd.h>
+#include <time.h>
+#include <stdlib.h>
 
-#define DELAY 90000
 
 typedef struct _win_border_struct {
     chtype 	ls, rs, ts, bs,
@@ -21,10 +22,13 @@ typedef struct _WIN_struct {
 
 void init_win_params(WIN *p_win)
 {
+    srand (time(NULL));
+    // p_win->height = rand()%10 + 3;
+    // p_win->width = rand()%10 + 3;
     p_win->height = 3;
     p_win->width = 10;
-    p_win->starty = (LINES - p_win->height)/2;
-    p_win->startx = (COLS - p_win->width)/2;
+//    p_win->starty = (LINES - p_win->height)/2;
+//    p_win->startx = (COLS - p_win->width)/2;
 
     p_win->border.ls = '|';
     p_win->border.rs = '|';
@@ -39,21 +43,7 @@ void init_win_params(WIN *p_win)
 
 
 
-void init_bullet_params(WIN *p_win, int x, int y){
-    p_win->height = 1;
-    p_win->width = 2;
-    p_win->starty = y - 3;
-    p_win->startx = x;
 
-    p_win->border.ls = '|';
-    p_win->border.rs = '|';
-    p_win->border.ts = '-';
-    p_win->border.bs = '-';
-    p_win->border.tl = '+';
-    p_win->border.tr = '+';
-    p_win->border.bl = '+';
-    p_win->border.br = '+';
-}
 
 
 void print_win_params(WIN *p_win)
@@ -93,52 +83,69 @@ void create_box(WIN *p_win, bool flag)
 
 }
 
-void make_bullet_from_parent(WIN *parent_win, WIN *enemie){
-    int max_y = 0, max_x = 0;
-    getmaxyx(stdscr, max_y, max_x);
-    WIN bullet;
-    init_bullet_params(&bullet, parent_win->startx, parent_win->starty);
-    create_box(&bullet, TRUE);
-    refresh();
-    int i=parent_win->starty;
-    while(i>=0){
-        usleep(DELAY);
-        create_box(&bullet, FALSE);
-        if(bullet.startx >= enemie->startx && bullet.startx <= enemie->startx+enemie->width && bullet.starty == enemie->starty){
-            create_box(enemie, FALSE);
-            create_box(&bullet, FALSE);
-            return;
-        }
-        --bullet.starty;
-        create_box(&bullet, TRUE);
-        refresh();
-        --i;
-    }
-    create_box(&bullet, FALSE);
-}
+//void make_bullet_from_parent(WIN *parent_win, WIN *enemie){
+//    int max_y = 0, max_x = 0;
+//    getmaxyx(stdscr, max_y, max_x);
+//    WIN bullet;
+//    init_bullet_params(&bullet, parent_win->startx, parent_win->starty);
+//    create_box(&bullet, TRUE);
+//    refresh();
+//    int i=parent_win->starty;
+//    while(i>=0){
+//        usleep(DELAY);
+//        create_box(&bullet, FALSE);
+//        if(bullet.startx >= enemie->startx && bullet.startx <= enemie->startx+enemie->width && bullet.starty == enemie->starty){
+//            create_box(enemie, FALSE);
+//            create_box(&bullet, FALSE);
+//            return;
+//        }
+//        --bullet.starty;
+//        create_box(&bullet, TRUE);
+//        refresh();
+//        --i;
+//    }
+//    create_box(&bullet, FALSE);
+//}
 
-void make_bullet_from_enemy(WIN *parent_win, WIN *enemie){
-    int max_y = 0, max_x = 0;
-    getmaxyx(stdscr, max_y, max_x);
-    WIN bullet;
-    init_bullet_params(&bullet, parent_win->startx, parent_win->starty);
-    create_box(&bullet, TRUE);
-    refresh();
-    int i=parent_win->starty;
-    while(i>=0){
-        usleep(DELAY);
-        create_box(&bullet, FALSE);
-        if(bullet.startx >= enemie->startx && bullet.startx <= enemie->startx+enemie->width && bullet.starty == enemie->starty){
-            endwin();
-            return;
-        }
-        --bullet.starty;
-        create_box(&bullet, TRUE);
-        refresh();
-        --i;
-    }
-    create_box(&bullet, FALSE);
+//void bullet_in_position(int x,int y){
+//    WIN bullet;
+//    init_bullet_params(&bullet,x,y);
+//    create_box(&bullet, TRUE);
+//    refresh();
+//    int i=y;
+//    while(i>=0){
+//        usleep(DELAY);
+//        create_box(&bullet, FALSE);
+//        --bullet.starty;
+//        create_box(&bullet, TRUE);
+//        refresh();
+//        --i;
+//    }
+//    create_box(&bullet, FALSE);
+//}
 
-}
+//void make_bullet_from_enemy(WIN *parent_win, WIN *enemie){
+//    int max_y = 0, max_x = 0;
+//    getmaxyx(stdscr, max_y, max_x);
+//    WIN bullet;
+//    init_bullet_params(&bullet, parent_win->startx, parent_win->starty);
+//    create_box(&bullet, TRUE);
+//    refresh();
+//    int i=parent_win->starty;
+//    while(i>=0){
+//        usleep(DELAY);
+//        create_box(&bullet, FALSE);
+//        if(bullet.startx >= enemie->startx && bullet.startx <= enemie->startx+enemie->width && bullet.starty == enemie->starty){
+//            endwin();
+//            return;
+//        }
+//        --bullet.starty;
+//        create_box(&bullet, TRUE);
+//        refresh();
+//        --i;
+//    }
+//    create_box(&bullet, FALSE);
+
+//}
 
 #endif // GAME_UTILS_H
