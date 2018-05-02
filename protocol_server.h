@@ -17,8 +17,9 @@
 #include <ncurses.h>
 #include <chrono>
 #include <ncurses.h>
-
+#include <thread>
 using namespace std;
+#define DELAY 120000
 
 
 
@@ -30,9 +31,9 @@ void print_vector(vector<char> vec){
 
 string NumberToString(int n)
 {
-     ostringstream ss;
-     ss << n;
-     return ss.str();
+    ostringstream ss;
+    ss << n;
+    return ss.str();
 }
 
 string Numberstring_with_padding(int n, int n_bytes){
@@ -45,6 +46,29 @@ typedef pair<int,int> coord;
 map<int,coord> bullets_positions;
 map<string,int> clients;
 map<int,coord> movements_game;
+
+void update_bullet_positions(){ // also colissions hehehehe
+    while(true){
+        if(!bullets_positions.empty()){
+            map<int,coord>::iterator bullet;
+            for(bullet = bullets_positions.begin(); bullet != bullets_positions.end(); ++bullet){
+                if( (bullet->second).second != 0){
+                    usleep(DELAY);
+                    --(bullet->second).second;
+                    map<int,coord>::iterator player;
+                    for(player = movements_game.begin(); player != movements_game.end(); ++player){
+                        if( (bullet->second.second == player->second.second) && (bullet->second.first >= player->second.first && bullet->second.first <= (player->second.first+10)) ){
+                            cout<< "bullet on player "<< player->first<<endl;
+                        }
+                    }
+                }
+                else{
+                    bullets_positions.erase(bullet);
+                }
+            }
+        }
+    }
+}
 
 
 class Messsage
@@ -85,6 +109,7 @@ public:
     int count_bullet;
     Protocol(){
         count_bullet = 0;
+        thread(update_bullet_positions).detach();
     }
     Messsage read_s(char operation, int size_message, int source_socket, vector<Messsage> &multi){
         int n;
@@ -269,7 +294,7 @@ public:
         size_str += message;
         return size_str;
     }
-   
+
     string prepare_game_response(string message){
         int size_message = message.length();
         string size_str = NumberToString(size_message);
@@ -277,7 +302,7 @@ public:
         size_str += 'I';
         size_str += message;
         return size_str;
-    }   
+    }
 
     string prepare_file_response(string source_nick_name, int file_name_size, string file_name, int file_size, string file){
         string ret = "";
