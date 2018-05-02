@@ -32,10 +32,18 @@ void read_from_client(int SocketFD){
             char buffer_op[1];
             //now read operation
             n = read(SocketFD, buffer_op, 1);
-            Messsage msg = protocol_chat.read_s(buffer_op[0],size_message,SocketFD);
-            mutx.lock();
-            queue_messages.push(msg);
-            mutx.unlock();
+            vector<Messsage> multi_messages;
+            Messsage msg = protocol_chat.read_s(buffer_op[0],size_message,SocketFD, multi_messages);
+            if(multi_messages.size() <= 0){
+                mutx.lock();
+                queue_messages.push(msg);
+                mutx.unlock();
+            }
+            for(int i=0; i<multi_messages.size(); i++){
+                mutx.lock();
+                queue_messages.push(multi_messages[i]);
+                mutx.unlock();
+            }
             if(buffer_op[0]=='E') return;
         }
         bzero(buffer,4);

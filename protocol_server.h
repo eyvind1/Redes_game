@@ -15,7 +15,8 @@
 #include <sstream>
 #include <vector>
 #include <ncurses.h>
-#include <chrono> 
+#include <chrono>
+#include <ncurses.h>
 
 using namespace std;
 
@@ -33,6 +34,17 @@ string NumberToString(int n)
      ss << n;
      return ss.str();
 }
+
+string Numberstring_with_padding(int n, int n_bytes){
+    string ret = NumberToString(n);
+    ret = string(n_bytes-ret.length(), '0').append(ret);
+    return ret;
+}
+
+typedef pair<int,int> coord;
+map<int,coord> bullets_positions;
+map<string,int> clients;
+map<int,coord> movements_game;
 
 
 class Messsage
@@ -65,20 +77,47 @@ public:
 };
 
 
+
+
 class Protocol
 {
 public:
-    map<string,int> clients;
-    Protocol(){}
-    Messsage read_s(char operation, int size_message, int source_socket){
+    int count_bullet;
+    Protocol(){
+        count_bullet = 0;
+    }
+    Messsage read_s(char operation, int size_message, int source_socket, vector<Messsage> &multi){
         int n;
         char *message_buffer;
         if(size_message == 0){
             if(operation == 'P')
                 return Messsage(source_socket, prepare_simple_response(get_clients()));
-            if(operation == 'E'){
+            else if(operation == 'E'){
                 this->remove_client(source_socket);
                 return Messsage(source_socket, prepare_simple_response("You left the chat"));
+            }
+            // In case that a new player is incoming
+            else if(operation == 'W'){
+                message_buffer = new char[4];
+                n = read(source_socket, message_buffer, 4);
+                int x = atoi(message_buffer);
+                message_buffer = new char[4];
+                n = read(source_socket, message_buffer, 4);
+                int y = atoi(message_buffer);
+                movements_game[source_socket] = make_pair(x,y);
+
+                for (std::map<int, coord>::iterator it=movements_game.begin(); it!=movements_game.end(); ++it){
+                    string s_x = Numberstring_with_padding(it->second.first, 4);
+                    string s_y = Numberstring_with_padding(it->second.second, 4);
+                    string message_simple = prepare_simple_response(NumberToString(it->first),'W');
+                    message_simple += s_x;
+                    message_simple += s_y;
+                    for (std::map<int, coord>::iterator it2=movements_game.begin(); it2!=movements_game.end(); ++it2){
+                        Messsage tmp_msg(it2->first, message_simple);
+                        multi.push_back(tmp_msg);
+                    }
+                }
+                return Messsage(source_socket, prepare_simple_response("Welcome to the game"));
             }
             
         }
@@ -99,11 +138,11 @@ public:
             n = read(source_socket, message_buffer, dest_name_size);
             string dest_name = string(message_buffer);
 
-            map<string,int>::iterator i = this->clients.find(dest_name);
-            if (i == this->clients.end())
+            map<string,int>::iterator i = clients.find(dest_name);
+            if (i == clients.end())
                 return Messsage(source_socket, prepare_simple_response(dest_name + " is offline"));
 
-            int dest_socket = this->clients[dest_name]; //get te socket by the name
+            int dest_socket = clients[dest_name]; //get te socket by the name
 
             //now read the message
             message_buffer = new char[size_message];
@@ -124,8 +163,8 @@ public:
             char *filename = new char[file_name_size];
             n = read(source_socket, nickname_dest, dest_name_size);
 
-            map<string,int>::iterator i = this->clients.find(string(nickname_dest));
-            if (i == this->clients.end())
+            map<string,int>::iterator i = clients.find(string(nickname_dest));
+            if (i == clients.end())
                 return Messsage(source_socket, prepare_simple_response(string(nickname_dest) + " is offline"));
 
             n = read(source_socket, filename, file_name_size);
@@ -141,38 +180,71 @@ public:
             n = read(source_socket, &buf_file[0], file_size);
             string file_str = string(buf_file.begin(), buf_file.end());
 
-            int dest_socket = this->clients[string(nickname_dest)];
+            int dest_socket = clients[string(nickname_dest)];
             string source_nickname = this->get_name_client(source_socket);
 
 
             string to_msg = prepare_file_response(source_nickname, file_name_size, string(filename), file_size, file_str);
             return Messsage(dest_socket, to_msg, true);
         }
-        else if(operation == 'G'){
-                message_buffer = new char[2];
-                n = read(source_socket, message_buffer, 2);
-                int dest_name_size = atoi(message_buffer);
-                //With that read for who is the message
-                message_buffer = new char[dest_name_size];
-                n = read(source_socket, message_buffer, dest_name_size);
-                string dest_name = string(message_buffer);
+        else if(operation == 'M'){
+            message_buffer = new char[size_message];
+            n = read(source_socket, message_buffer, size_message);
+            int move = atoi(message_buffer);
+            coord originals = movements_game[source_socket];
 
-                int dest_socket = this->clients[dest_name]; //get te socket by the name
+            if(move == 120){
+                int x_bullet = originals.first + 5;
+                int y_bullet = originals.second - 3;
+                string s_bullet_x = Numberstring_with_padding(x_bullet, 4);
+                string s_bullet_y = Numberstring_with_padding(y_bullet, 4);
+                int id_bullet = ++count_bullet;
+                bullets_positions[id_bullet] = make_pair(x_bullet, y_bullet);
+                string message_bullet = prepare_simple_response(NumberToString(id_bullet),'B');
+                message_bullet += s_bullet_x;
+                message_bullet += s_bullet_y;
 
-                //now read the message
-                message_buffer = new char[size_message];
-                
-                n = read(source_socket, message_buffer, size_message);
-                //string message = this->get_name_client(source_socket) + " dice: " + string(message_buffer);
-                return Messsage(dest_socket, prepare_game_response(message_buffer));
-                
+                for (std::map<int, coord>::iterator it=movements_game.begin(); it!=movements_game.end(); ++it){
+                    Messsage tmp_msg_bullet(it->first, message_bullet);
+                    multi.push_back(tmp_msg_bullet);
+                }
+                return Messsage(source_socket, prepare_simple_response("",'P'));
             }
 
+            switch(move)
+            {
+            case KEY_LEFT:
+                --originals.first;
+                break;
+            case KEY_RIGHT:
+                ++originals.first;
+                break;
+            case KEY_UP:
+                --originals.second;
+                break;
+            case KEY_DOWN:
+                ++originals.second;
+                break;
+            }
+            movements_game[source_socket] = originals;
+            for (std::map<int, coord>::iterator it=movements_game.begin(); it!=movements_game.end(); ++it){
+                string s_x = Numberstring_with_padding(it->second.first, 4);
+                string s_y = Numberstring_with_padding(it->second.second, 4);
+                string message_simple = prepare_simple_response(NumberToString(it->first),'I');
+                message_simple += s_x;
+                message_simple += s_y;
+                for (std::map<int, coord>::iterator it2=movements_game.begin(); it2!=movements_game.end(); ++it2){
+                    Messsage tmp_msg(it2->first, message_simple);
+                    multi.push_back(tmp_msg);
+                }
+            }
+            return Messsage(source_socket, prepare_simple_response("",'P'));
+        }
     }
 
     string get_clients(){
         string ret = "\n";
-        for (std::map<string,int>::iterator it=this->clients.begin(); it!=this->clients.end(); ++it)
+        for (std::map<string,int>::iterator it=clients.begin(); it!=clients.end(); ++it)
             ret += it->first + "\n";
         return ret;
     }
@@ -180,20 +252,20 @@ public:
     void remove_client(int socket){
         string name;
         name = this->get_name_client(socket);
-        this->clients.erase(name);
+        clients.erase(name);
     }
 
     string get_name_client(int socket){
-        for (std::map<string,int>::iterator it=this->clients.begin(); it!=this->clients.end(); ++it)
+        for (std::map<string,int>::iterator it=clients.begin(); it!=clients.end(); ++it)
             if(it->second == socket) return it->first;
         return "-";
     }
 
-    string prepare_simple_response(string message){
+    string prepare_simple_response(string message, char protocol_ch = 'R'){
         int size_message = message.length();
         string size_str = NumberToString(size_message);
         size_str = string(4-size_str.length(), '0').append(size_str);
-        size_str += 'R';
+        size_str += protocol_ch;
         size_str += message;
         return size_str;
     }
@@ -232,7 +304,7 @@ public:
     }
 
     void add_client(string name, int socket){
-        this->clients[name] = socket;
+        clients[name] = socket;
     }
 };
 
