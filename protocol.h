@@ -71,6 +71,21 @@ string encode_to_user_message(string message, string to_user, char custom_op='C'
     return size_str;
 }
 
+string encode_welcome_game_message(int x,int y){
+    string ret = "0000W";
+    ret += number_to_string_with_padding(x,4);
+    ret += number_to_string_with_padding(y,4);
+    return ret;
+}
+
+string encode_movement_message(int mv){
+    string move = to_string(mv);
+    string ret = number_to_string_with_padding(move.size(),4);
+    ret += "M";
+    ret += move;
+    return ret;
+}
+
 
 
 namespace file_utils {

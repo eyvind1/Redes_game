@@ -6,50 +6,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <random>
 #include <iostream>
 #include <thread>
 #include <ncurses.h>
-#include <chrono> 
+#include <chrono>
 #include "protocol.h"
 #include "game_utils.h"
+#include <map>
+#include <time.h>
+#include <stdlib.h>
+#include "bullet_thread.h"
 
 using namespace std;
 
 WIN win;
 WIN win_second;
 
-
-
-void movements_clients(WIN &win2,int move)
-{
-    switch(move)
-    {
-    case KEY_LEFT:
-        create_box(&win2, FALSE);
-        --win2.startx;
-        create_box(&win2, TRUE);
-        break;
-    case KEY_RIGHT:
-        create_box(&win2, FALSE);
-        ++win2.startx;
-        create_box(&win2, TRUE);
-        break;
-    case KEY_UP:
-        create_box(&win2, FALSE);
-        --win2.starty;
-        create_box(&win2, TRUE);
-        break;
-    case KEY_DOWN:
-        create_box(&win2, FALSE);
-        ++win2.starty;
-        create_box(&win2, TRUE);
-        break;
-    case 120:
-        std::thread(make_bullet_from_enemy, &win2, &win).detach();
-        break;
-    }
-    refresh();
-}
+map<int,WIN> bingo_players;
+ThreadBullet bullets;
 
 void print_vector(vector<char> vec){
     for(int i=0; i<vec.size(); i++)
@@ -84,16 +59,66 @@ void read_from_client(int SocketFD){
             else if(buffer_op[0] == 'I'){
                 message_buffer = new char[size_message];
                 n = read(SocketFD, message_buffer, size_message);
+
+                int playerID = atoi(message_buffer);
+        //        mvprintw(25, 0, "%d %d", bingo_players[playerID].startx, bingo_players[playerID].starty);
+                n = read(SocketFD, message_buffer,4);
+                int x = atoi(message_buffer);
+                n = read(SocketFD, message_buffer,4);
+                int y = atoi(message_buffer);
+
+                create_box(&(bingo_players[playerID]),FALSE);
+                bingo_players[playerID].startx = x;
+                create_box(&(bingo_players[playerID]),FALSE);
+                bingo_players[playerID].starty = y;
+                create_box(&(bingo_players[playerID]),FALSE);
+                create_box(&(bingo_players[playerID]),TRUE);
+            }
+            else if(buffer_op[0] == 'W'){
+                message_buffer = new char[size_message];
+                n = read(SocketFD, message_buffer, size_message);
+
+                // mvprintw(25, 0, "wwww");
+                // refresh();
+
                 //cout<< "Juego Iniciado: " << message_buffer << endl;
-                if(first_game){
-                    init_win_params(&win_second);
-                    create_box(&win_second, TRUE);
-                    first_game = false;
+                int playerID = atoi(message_buffer);
+                n = read(SocketFD, message_buffer,4);
+                int x = atoi(message_buffer);
+                n = read(SocketFD, message_buffer,4);
+                int y = atoi(message_buffer);
+
+                WIN new_player;
+                bingo_players[playerID] = new_player;
+
+                bingo_players[playerID].startx = x;
+                bingo_players[playerID].starty = y;
+                init_win_params(&(bingo_players[playerID]));
+                map<int,WIN>::iterator it;
+                for(it = bingo_players.begin(); it != bingo_players.end(); ++it){
+                    create_box(&(it->second),FALSE);
+                    create_box(&(it->second),TRUE);
+                    refresh();
                 }
-                refresh();
-                int ch;
-                ch = atoi(message_buffer);
-                movements_clients(win_second, ch);
+            }
+            else if(buffer_op[0] == 'B'){
+                message_buffer = new char[size_message];
+                n = read(SocketFD, message_buffer, size_message);
+                int bullet_id = atoi(message_buffer);
+                n = read(SocketFD, message_buffer, 4);
+                int bullet_x = atoi(message_buffer);
+                n = read(SocketFD, message_buffer, 4);
+                int bullet_y = atoi(message_buffer);
+                //mvprintw(25, 0, "%d %d",bullet_x,bullet_y);
+                bullets.start_thread(bullet_id,bullet_x,bullet_y);
+            }
+
+            else if(buffer_op[0] == 'X'){
+                message_buffer = new char[size_message];
+                n = read(SocketFD, message_buffer, size_message);
+                int disconnected_id = atoi(message_buffer);
+                create_box(&(bingo_players[disconnected_id]),FALSE);
+                bingo_players.erase(disconnected_id);
             }
         }
         bzero(buffer,4);
@@ -124,7 +149,7 @@ int main(int argc, char *argv[])
 
     stSockAddr.sin_family = AF_INET;
     stSockAddr.sin_port = htons(1100);
-    Res = inet_pton(AF_INET, "127.0.0.1", &stSockAddr.sin_addr);
+    Res = inet_pton(AF_INET, "192.168.0.10", &stSockAddr.sin_addr);
 
     if (0 > Res)
     {
@@ -205,72 +230,24 @@ int main(int argc, char *argv[])
             to_send = "";
             to_send = encode_simple_message(string("E"));
         }
-        //        else if(input_message == "G")
-        //        {
 
-        //            WIN win;
-        //            string to_user;
-        //            string move;
-        //            to_send = "";
-        //            cout << "Enter the username to play with: ";
-        //            std::getline(std::cin, to_user);
-        //            //to_send = encode_to_user_message(to_user,to_user,'G');
-        //            int ch;
-        //            initscr();                      //Start curses mode
-        //            start_color();                  // Start the color functionality
-        //            cbreak();                       // Line buffering disabled, Pass on
-        //            //string move;                  // everty thing to me
-        //            keypad(stdscr, TRUE);           // I need that nifty F1
-        //            noecho();
-        //            init_pair(1, COLOR_CYAN, COLOR_BLACK);
-        //            //Initialize the window parameters
-        //            init_win_params(&win);
-        //            print_win_params(&win);
-
-        //            attron(COLOR_PAIR(1));
-        //            printw("Press F1 to exit");
-        //            refresh();
-        //            attroff(COLOR_PAIR(1));
-        //            create_box(&win, TRUE);
-        //            while((ch = getch()) != KEY_F(1))
-        //            {
-        //                to_send = to_string(ch);
-        //                to_send = encode_to_user_message(to_send,to_user,'G');
-        //                switch(ch)
-        //                {       case KEY_LEFT:
-        //                            create_box(&win, FALSE);
-        //                            --win.startx;
-        //                            create_box(&win, TRUE);
-        //                            break;
-        //                        case KEY_RIGHT:
-        //                            create_box(&win, FALSE);
-        //                            ++win.startx;
-        //                            create_box(&win, TRUE);
-        //                            break;
-        //                        case KEY_UP:
-        //                            create_box(&win, FALSE);
-        //                            --win.starty;
-        //                            create_box(&win, TRUE);
-        //                            break;
-        //                        case KEY_DOWN:
-        //                            create_box(&win, FALSE);
-        //                            ++win.starty;
-        //                            create_box(&win, TRUE);
-        //                            break;
-        //                }
-        //                n = write(SocketFD, to_send.c_str(), to_send.length());
-        //                input_message = "";
-        //            }
-        //            endwin();
-        //            continue;
-        //        }
         else if(input_message == "G"){
-            cout << "Enter the username to play with: ";
-            string to_user;
-            std::getline(std::cin, to_user);
-            int ch;
 
             initscr();			/* Start curses mode 		*/
+            std::random_device rd;
+            std::mt19937 mt(rd());
+            std::uniform_int_distribution<> dist(4,10);
+
+            int starty = (LINES - 3)/ dist(mt);
+            int startx = (COLS - 10)/ dist(mt);
+            string msg = encode_welcome_game_message(startx,starty);
+
+            n = write(SocketFD, msg.c_str(), msg.length());
+
+
+
+            int ch;
+
             start_color();			/* Start the color functionality */
             cbreak();			/* Line buffering disabled, Pass on
                                  * everty thing to me 		*/
@@ -279,46 +256,22 @@ int main(int argc, char *argv[])
             init_pair(1, COLOR_CYAN, COLOR_BLACK);
 
             /* Initialize the window parameters */
-            init_win_params(&win);
-            print_win_params(&win);
+            //init_win_params(&win);
+            //print_win_params(&win);
 
             attron(COLOR_PAIR(1));
             printw("Press F1 to exit");
             refresh();
             attroff(COLOR_PAIR(1));
 
-            create_box(&win, TRUE);
-            while((ch = getch()) != KEY_F(1))
-            {
-                to_send = to_string(ch);
-                to_send = encode_to_user_message(to_send,to_user,'G');
-                switch(ch)
-                {	case KEY_LEFT:
-                    create_box(&win, FALSE);
-                    --win.startx;
-                    create_box(&win, TRUE);
-                    break;
-                case KEY_RIGHT:
-                    create_box(&win, FALSE);
-                    ++win.startx;
-                    create_box(&win, TRUE);
-                    break;
-                case KEY_UP:
-                    create_box(&win, FALSE);
-                    --win.starty;
-                    create_box(&win, TRUE);
-                    break;
-                case KEY_DOWN:
-                    create_box(&win, FALSE);
-                    ++win.starty;
-                    create_box(&win, TRUE);
-                    break;
-                case 'x':
-                    std::thread(make_bullet_from_parent, &win, &win_second).detach();
-                    break;
-                }
+            //create_box(&win, TRUE);
+            while((ch = getch()) != KEY_F(1)){
+                //
+                to_send = encode_movement_message(ch);
                 n = write(SocketFD, to_send.c_str(), to_send.length());
-                input_message = "";
+
+
+                // input_message = "";
             }
             endwin();
         }
