@@ -18,9 +18,11 @@
 #include <chrono>
 #include <ncurses.h>
 #include <thread>
+#include <queue>
+#include <mutex>
+
 using namespace std;
 #define DELAY 120000
-
 
 
 void print_vector(vector<char> vec){
@@ -44,32 +46,9 @@ string Numberstring_with_padding(int n, int n_bytes){
 
 typedef pair<int,int> coord;
 map<int,coord> bullets_positions;
+map<int,int> players_life;
 map<string,int> clients;
 map<int,coord> movements_game;
-
-void update_bullet_positions(){ // also colissions hehehehe
-    while(true){
-        if(!bullets_positions.empty()){
-            map<int,coord>::iterator bullet;
-            for(bullet = bullets_positions.begin(); bullet != bullets_positions.end(); ++bullet){
-                if( (bullet->second).second != 0){
-                    usleep(DELAY);
-                    --(bullet->second).second;
-                    map<int,coord>::iterator player;
-                    for(player = movements_game.begin(); player != movements_game.end(); ++player){
-                        if( (bullet->second.second == player->second.second) && (bullet->second.first >= player->second.first && bullet->second.first <= (player->second.first+10)) ){
-                            cout<< "bullet on player "<< player->first<<endl;
-                        }
-                    }
-                }
-                else{
-                    bullets_positions.erase(bullet);
-                }
-            }
-        }
-    }
-}
-
 
 class Messsage
 {
@@ -100,8 +79,48 @@ public:
     }
 };
 
+queue<Messsage> queue_messages;
+std::mutex mutx;
 
+void update_bullet_positions(){ // also colissions hehehehe
+    while(true){
+        if(!bullets_positions.empty()){
+            map<int,coord>::iterator bullet;
+            for(bullet = bullets_positions.begin(); bullet != bullets_positions.end(); ++bullet){
+                if( (bullet->second).second != 0){
+                    usleep(DELAY);
+                    --(bullet->second).second;
+                    map<int,coord>::iterator player;
+                    for(player = movements_game.begin(); player != movements_game.end(); ++player){
+                        if( (bullet->second.second == player->second.second) && (bullet->second.first >= player->second.first && bullet->second.first <= (player->second.first+10)) ){
+                            //cout<< "bullet on player "<< player->first<<endl;
+                            players_life[player->first] = players_life[player->first] - 1;
+                            string actual_lifes = Numberstring_with_padding(players_life[player->first],4);
+                            for (std::map<int, coord>::iterator it2=movements_game.begin(); it2!=movements_game.end(); ++it2){
+                                string player_id = NumberToString(player->first);
+                                int size_message = player_id.length();
+                                string size_str = NumberToString(size_message);
+                                size_str = string(4-size_str.length(), '0').append(size_str);
+                                size_str += 'X';
+                                size_str += player_id;
+                                size_str += actual_lifes;
+                                cout << size_str << endl;
+                                Messsage tmp_msg(it2->first, size_str);
+                                mutx.lock();
+                                queue_messages.push(tmp_msg);
+                                mutx.unlock();
 
+                            }
+                        }
+                    }
+                }
+                else{
+                    bullets_positions.erase(bullet);
+                }
+            }
+        }
+    }
+}
 
 class Protocol
 {
@@ -130,6 +149,8 @@ public:
                 n = read(source_socket, message_buffer, 4);
                 int y = atoi(message_buffer);
                 movements_game[source_socket] = make_pair(x,y);
+                //init life of players
+                players_life[source_socket] = 4;
 
                 for (std::map<int, coord>::iterator it=movements_game.begin(); it!=movements_game.end(); ++it){
                     string s_x = Numberstring_with_padding(it->second.first, 4);

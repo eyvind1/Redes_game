@@ -16,8 +16,6 @@
 
 using namespace std;
 
-std::mutex mutx;
-queue<Messsage> queue_messages;
 Protocol protocol_chat;
 
 
